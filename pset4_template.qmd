@@ -23,9 +23,40 @@ include-before-body:
 
 ## Submission Steps (10 pts)
 
+Partner 1: Sumner Perera (CNet ID: 12403312)
+Partner 2: Mithila Iyer (CNet ID: 12414493)
+
+“This submission is our work alone and complies with the 30538 integrity policy.” Add
+your initials to indicate your agreement: **SP** **__**
+
+“I have uploaded the names of anyone else other than my partner and I worked with
+on the problem set here” (1 point)
+
+Late coins used this pset: **__** Late coins left after submission: **__**
+
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
-1. 
+Provider type code 01 (PRVDR_CTGRY_CD) and subtype code 01 (PRVDR_CTGRY_SBTYP_CD)
+CMS Certification Number: PRVDR_NUM
+Closed if its Termination Code in the POS file lists them as an “Active Provider” in 2016
+- PGM_TRMNTN_CD and the value for "Active Provider" is 00
+Zip code: ZIP_CD
+Name of provider: FAC_NAME 
+Year of suspected closure: FY_END_MO_DAY_CD 
+
+Link to filtered view: https://data.cms.gov/provider-characteristics/hospitals-and-other-facilities/provider-of-services-file-hospital-non-hospital-facilities/data/q4-2016?query=%7B%22filters%22%3A%7B%22rootConjunction%22%3A%7B%22label%22%3A%22And%22%2C%22value%22%3A%22AND%22%7D%2C%22list%22%3A%5B%5D%7D%2C%22keywords%22%3A%22%22%2C%22offset%22%3A0%2C%22limit%22%3A10%2C%22sort%22%3A%7B%22sortBy%22%3Anull%2C%22sortOrder%22%3Anull%7D%2C%22columns%22%3A%5B%22PRVDR_CTGRY_SBTYP_CD%22%2C%22PRVDR_CTGRY_CD%22%2C%22FAC_NAME%22%2C%22PRVDR_NUM%22%2C%22PGM_TRMNTN_CD%22%2C%22ZIP_CD%22%2C%22FY_END_MO_DAY_CD%22%5D%7D 
+
+
+1. After reviewing the entirety of the pset and the questions that are asked, I pulled the following variables: 
+
+- PRVDR_CTGRY_CD: Provider type 
+- PRVDR_CTGRY_SBTYP_CD: Subtype code 
+- PRVDR_NUM: CMS Certification Number
+- PGM_TRMNTN_CD: Provider termination code 
+- ZIP_CD: Zip code 
+- FAC_NAME: Provider name 
+- FY_END_MO_DAY_CD: Year of suspected closure 
+
 2. 
     a.
     b.
