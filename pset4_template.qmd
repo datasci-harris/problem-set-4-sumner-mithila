@@ -58,9 +58,56 @@ Link to filtered view: https://data.cms.gov/provider-characteristics/hospitals-a
 - FY_END_MO_DAY_CD: Year of suspected closure 
 
 2. 
-    a.
-    b.
-3. 
+```{python}
+# Import the file from my local drive 
+import pandas as pd 
+import os 
+base_path = r"C:\Users\12019\\Downloads\pos2016"
+path = os.path.join(base_path, "pos2016.csv")
+pos2016 = pd.read_csv(path)
+
+# Subset to PRVDR_CTGRY_CD = 01 and PRVDR_CTGRY_SBTYP_CD = 01 
+subset_16 = pos2016[(pos2016["PRVDR_CTGRY_SBTYP_CD"] == 1) & (pos2016["PRVDR_CTGRY_CD"] == 1)]
+
+# Count the number of rows 
+total_16 = len(subset_16)
+total_16
+```
+
+Subsetting to short-term hospitals gives a dataset with 7245 total facilities. According to the linked paper, there are nearly 5,000 short-term acute care hospitals which is a smaller subset than what I found with subsetting. Another data source (https://www.aha.org/statistics/fast-facts-us-hospitals) cites a total of 6,120 hospitals in the US. Both sources cite a lower number than what we found which suggests that this number may be inaccurate. It could differ because there are hospitals listed which have actually closed or not operational. 
+    
+3.
+```{python}
+# Load in datasets 
+base_path1 = r"C:\Users\12019\\Downloads\pos2017"
+path1 = os.path.join(base_path1, "pos2017.csv")
+pos2017 = pd.read_csv(path1)
+
+base_path2 = r"C:\Users\12019\\Downloads\pos2018"
+path2 = os.path.join(base_path2, "pos2018.csv")
+pos2018 = pd.read_csv(path2, encoding='latin1')
+
+# Note: Had to do the encoding='latin1' addition to account for errors which said: 
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x98 in position 11970: invalid start byte
+
+base_path3 = r"C:\Users\12019\\Downloads\pos2019"
+path3 = os.path.join(base_path3, "pos2019.csv")
+pos2019 = pd.read_csv(path3, encoding='latin1')
+
+# Drawn from ChatGPT. Asked "How do you append multiple data sets with the same columns?"
+combined = pd.concat([pos2016, pos2017, pos2018, pos2019], axis=0)
+
+# Plot the number of observations by year  
+import altair as alt
+alt.Chart(combined).mark_bar().encode(
+  alt.X('year:Q'), 
+  y='count()'
+)
+
+```
+
+
+
 4. 
     a.
     b.
