@@ -77,14 +77,68 @@ Link to filtered view: https://data.cms.gov/provider-characteristics/hospitals-a
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
-    a.
-    b. 
+    a. The five file types are: xml (this stores metadata about the shapefile and information about variables), dbf (this contains attribute information in a table), prj (this contains projection and coordinate system information), shp (this is the main file that has the feature geometry), and shx(this is the index file of the feature geometry).
+    b. The datasets have the following sizes: xml (16kb), dbf (6.4mb), prj (4kb), shp (837.5mb), shx (266kb)
 2. 
+
+```{python}
+#Loading in data.
+import geopandas as gpd 
+import pandas as pd
+filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
+pset4_geo = gpd.read_file(filepath)
+pset4_geo['ZCTA5'] = pd.to_numeric(pset4_geo['ZCTA5'], errors='coerce')
+#Restricted to Texas zipcodes
+subset_geo = pset4_geo[(pset4_geo['ZCTA5'] >= 750) & (pset4_geo['ZCTA5'] <= 799)]
+
+```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
+```{python}
+#Calculate centroids
+zips_all_centroids = pset4_geo.copy()
+zips_all_centroids['centroid'] = zips_all_centroids.centroid
+zips_all_centroids.set_geometry('centroid')
+
+#Information on dimensions and columns
+dimensions = zips_all_centroids.shape
+print("Dimensions:", dimensions)
+print(zips_all_centroids.info())
+#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry columm and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
+```
+
 2. 
+```{python}
+#Creating the Texas centroids GeoDataframe and sorting to check all the zip codes are in there 
+zips_texas_centroids = zips_all_centroids[zips_all_centroids['ZCTA5'].str[:3].astype(int).between(750, 799)]
+zips_texas_centroids = zips_texas_centroids.sort_values(by='ZCTA5', ascending=True)
+
+#Creating the Texas + bordering states (New Mexico, Oklahoma, Arkansas, Louisiana) GeoDataframe and checking all codes are in there.
+
+zips_texas_borderstates_centroids = zips_all_centroids[
+    (
+        zips_all_centroids['ZCTA5'].str[:3].astype(int).between(750, 799) |
+        zips_all_centroids['ZCTA5'].str[:3].astype(int).between(700, 714) |
+        zips_all_centroids['ZCTA5'].str[:3].astype(int).between(716, 729) |
+        zips_all_centroids['ZCTA5'].str[:3].astype(int).between(730, 749) |
+        zips_all_centroids['ZCTA5'].str[:3].astype(int).between(870, 885)
+    )
+]
+zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.sort_values(by='ZCTA5', ascending=True)
+
+#There are 1935 unique zip codes in the Texas subset, and 4057 unique codes in the Texas and its bordering states subset. 
+#Source: ChatGPT to determine how to combine multiple subsets
+```
+
+2. 
+```{python}
+#CRM is a way of converting something flat into spherical. Prj is projection, will tell you . it's in degres. 
+
+```
+
+
 3. 
 4. 
     a.
