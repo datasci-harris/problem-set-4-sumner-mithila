@@ -180,10 +180,15 @@ print(result)
 #First, we will need to consolidate the dataset to find hospitals that were active in 2016. From this, we will be able to group by zip code to find the number of hospitals in each zip code
 
 active_hosp = combined_hosp[combined_hosp ['PGM_TRMNTN_CD'] ==0]
+#Briefly converting zip code to string, this will help our merge in 3.2
+active_hosp.loc[:, 'ZIP_CD'] = active_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
 grouped_hosp = active_hosp.groupby(['ZIP_CD', 'data_year']).size().reset_index(name='NUM_HOSP')
 grouped_hosp['Diff_Count'] = grouped_hosp.groupby('ZIP_CD')['NUM_HOSP'].diff()
+#Converting zip code back to numeric for checking in the function
+grouped_hosp['ZIP_CD'] = grouped_hosp['ZIP_CD'].astype(int)
 
-#Next we can create a function that will gaugle increases and decreases
+
+#Next we can create a function that will gauge increases and decreases
 
 def checker(row):
     zip = row['ZIP_CD']
@@ -209,17 +214,17 @@ print(len(merg_acq))
 
 b. 
 ```{python}
-#In order to correct for mergers and acquisitions, we delete the mergers from the old dataset
+#In order to correct for mergers and acquisitions, we chose to delete the mergers from the old dataset
 merg_acq_names = merg_acq['FAC_NAME']
 sus_closed_hosp_filt = sus_closed_hosp_filt[~sus_closed_hosp_filt['FAC_NAME'].isin(merg_acq_names)]
 
 print(len(sus_closed_hosp_filt))
-#147 hospitals remain after correcting
+#147 hospitals remain after correcting for mergers
 ```
 
 c.
 ```{python}
-#Lets rename the filtered dataset for better clarity 
+#Renaming the filtered dataset for clarity 
 filtered_data = sus_closed_hosp_filt
 
 #Now we print the top 10 rows of this corrected list
@@ -247,10 +252,33 @@ import geopandas as gpd
 import pandas as pd
 filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
 pset4_geo = gpd.read_file(filepath)
-pset4_geo['ZCTA5'] = pd.to_numeric(pset4_geo['ZCTA5'], errors='coerce')
 #Restricted to Texas zipcodes
-subset_geo = pset4_geo[(pset4_geo['ZCTA5'] >= 750) & (pset4_geo['ZCTA5'] <= 799)]
+subset_tx = pset4_geo[pset4_geo['ZCTA5'].str[:3].between('750', '799')]
 
+#Using the cleaned file from the previous step and converting zip codes to string
+filtered_data['ZIP_CD'] = filtered_data['ZIP_CD'].astype(str).str.split('.').str[0]
+filtered_data.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+
+
+
+#Merging
+merged_sets = subset_tx.merge(filtered_data, on='ZCTA5', how='outer')
+
+#Plot a choropleth of the number of hospitals by zip code in Texas.
+
+data.plot(column="var") draws a choropleth map with shading corresponding to the highlighted variable
+
+#Creating chloropleth
+
+
+
+```
+
+
+#Converting both to string and merging
+subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(str)
+grouped_tx_hosp.loc[:, 'ZCTA5'] = grouped_tx_hosp['ZCTA5'].astype(str)
+merged_data = subset_tx.merge(grouped_tx_hosp, on='ZCTA5', how='outer')
 ```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
