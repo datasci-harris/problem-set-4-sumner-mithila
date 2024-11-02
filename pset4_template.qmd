@@ -62,14 +62,14 @@ Link to filtered view: https://data.cms.gov/provider-characteristics/hospitals-a
 - PGM_TRMNTN_CD: Provider termination code 
 - ZIP_CD: Zip code 
 - FAC_NAME: Provider name 
-- FY_END_MO_DAY_CD: Year of suspected closure 
+- TRMNTN_EXPRTN_DT: Date the provider was terminated 
 
 2. 
 ```{python}
 # Import the file from my local drive 
 import pandas as pd 
 import os 
-base_path = r"C:\Users\12019\\Downloads\pos2016"
+base_path = r"C:\Users\12019\\Downloads"
 path = os.path.join(base_path, "pos2016.csv")
 pos2016 = pd.read_csv(path)
 
@@ -86,19 +86,16 @@ Subsetting to short-term hospitals gives a dataset with 7245 total facilities. A
 3.
 ```{python}
 # Load in datasets 
-base_path1 = r"C:\Users\12019\\Downloads\pos2017"
-path1 = os.path.join(base_path1, "pos2017.csv")
+path1 = os.path.join(base_path, "pos2017.csv")
 pos2017 = pd.read_csv(path1)
 
-base_path2 = r"C:\Users\12019\\Downloads\pos2018"
-path2 = os.path.join(base_path2, "pos2018.csv")
+path2 = os.path.join(base_path, "pos2018.csv")
 pos2018 = pd.read_csv(path2, encoding='latin1')
 
 # Note: Had to do the encoding='latin1' addition to account for errors which said: 
 UnicodeDecodeError: 'utf-8' codec can't decode byte 0x98 in position 11970: invalid start byte
 
-base_path3 = r"C:\Users\12019\\Downloads\pos2019"
-path3 = os.path.join(base_path3, "pos2019.csv")
+path3 = os.path.join(base_path, "pos2019.csv")
 pos2019 = pd.read_csv(path3, encoding='latin1')
 
 # Drawn from ChatGPT. Asked "How do you append multiple data sets with the same columns?"
@@ -126,8 +123,9 @@ alt.Chart(combined).mark_bar().encode(
 #Drawing in combined file and checking it 
 import pandas as pd
 import os 
-path = "/Users/mithilaiyer/Documents/GitHub/psetdata/combined_part1.csv"
-combined_hosp = pd.read_csv(path, low_memory=False) 
+# path = "/Users/mithilaiyer/Documents/GitHub/psetdata/combined_part1.csv"
+path4 = os.path.join(base_path, "combined_part1.csv")
+combined_hosp = pd.read_csv(path4, low_memory=False) 
 combined_hosp.head()
 
 #Finding hospitals that are active in 2016 (where PGM_TRMNTN_CD is zero) 
@@ -217,11 +215,6 @@ result2 = filtered_data [['FAC_NAME']].head(10)
 print(result2)
 ```
 
-2. 
-3. 
-    a.
-    b.
-    c.
 
 ## Download Census zip code shapefile (10 pt) 
 
@@ -234,11 +227,11 @@ print(result2)
 #Loading in data.
 import geopandas as gpd 
 import pandas as pd
-filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
+filepath = r"C:\Users\12019\Downloads\shp\gz_2010_us_860_00_500k.shp"
 pset4_geo = gpd.read_file(filepath)
 pset4_geo['ZCTA5'] = pd.to_numeric(pset4_geo['ZCTA5'], errors='coerce')
 #Restricted to Texas zipcodes
-subset_geo = pset4_geo[(pset4_geo['ZCTA5'] >= 750) & (pset4_geo['ZCTA5'] <= 799)]
+subset_geo = pset4_geo[(pset4_geo['ZCTA5'] >= 75000) & (pset4_geo['ZCTA5'] <= 79999)]
 
 ```
 
@@ -300,8 +293,65 @@ zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.sort_value
 ## Effects of closures on access in Texas (15 pts)
 
 1. 
+```{python}
+#Using the clean data, create a subset with only TX zip codes
+zip_codes_tx = filtered_data[(filtered_data['ZIP_CD'] >= 75000) & (filtered_data['ZIP_CD'] <= 79900)]
+
+#Drawn from ChatGPT. Asked "Let's say I have a data frame with a column of values. How do I create a new table that shows me in one column all the unique values in that column and how many times they appeared?" This gives a table with all Texas zip codes and the number of closures within each zip code. 
+tx_zips_closures = zip_codes_tx["ZIP_CD"].value_counts().reset_index()
+
+```
+
 2. 
+```{python}
+#Plot the cloropleth only for the zip codes that we identified in the previous question. Drawn from ChatGPT. Asked "If I have a list of values in a dataframe that are a subset of values from a column in a geopandas shp file. How do I plot only those subset in a cloropleth?"
+
+#First, create a list of the unique values and filter the geo shp data to only those zips in TX
+import matplotlib.pyplot as plt 
+tx_zips_closures["ZCTA5_Value"] = tx_zips_closures["ZIP_CD"]/100
+subset_values = tx_zips_closures["ZCTA5_Value"].astype(int)
+subset2_geo = subset_geo[subset_geo["ZCTA5"].isin(subset_values)]
+
+#Next, plot the cloropleth
+subset2_geo.plot(column ='ZCTA5', color= "brown")
+
+#Figure out the number of these regions. This gives 27 zip codes in Texas that have at least 1 closure in 2016-2019. 
+print(len(tx_zips_closures))
+```
+
 3. 
+
+```{python}
+#Already created a GeoDataFrame of the directly affected zip codes called subset2_geo. Now, create a 10 mile buffer around them. Gained help from ChatGPT, asked "How to create a X mile buffer around a geodataframe?"
+subset2_geo = subset2_geo.to_crs(epsg=32633)
+buffer_m = 10 * 1609.34
+subset2_geo.geometry.buffer(buffer_m).plot(edgecolor="black")
+plt.axis("off")
+plt.show()
+
+#Gathered information from ChatGPT, asked "How to do a spatial join between two geodata frames?"
+
+#Start with creating a geodataframe for the buffered regions 
+tx_zips_buffered = subset2_geo.copy()
+tx_zips_buffered["geometry"] = tx_zips_buffered.geometry.buffer(buffer_m)
+tx_zips_buffered = gpd.GeoDataFrame(geometry=tx_zips_buffered['geometry'], crs=subset2_geo.crs)
+
+#Next, with a bit of renaming first, do the join to the geodataframe only for TX
+all_tx = subset_geo.to_crs(epsg=32633)
+joined = gpd.sjoin(tx_zips_buffered, all_tx, how="inner", predicate="intersects")
+
+#How many indirectly affected zip codes are there?
+print(len(joined))
+```
+
+There are 24 indirectly affected zip codes after completing the spatial join. 
+
 4. 
 
+```{python}
+
+```
+
 ## Reflecting on the exercise (10 pts) 
+
+1. 
