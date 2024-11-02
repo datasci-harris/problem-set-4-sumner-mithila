@@ -207,8 +207,26 @@ print(len(merg_acq))
 #27 hospitals are suspected to be mergers and acquisitions
 ```
 
+b. 
+```{python}
+#In order to correct for mergers and acquisitions, we delete the mergers from the old dataset
+merg_acq_names = merg_acq['FAC_NAME']
+sus_closed_hosp_filt = sus_closed_hosp_filt[~sus_closed_hosp_filt['FAC_NAME'].isin(merg_acq_names)]
 
+print(len(sus_closed_hosp_filt))
+#147 hospitals remain after correcting
+```
 
+c.
+```{python}
+#Lets rename the filtered dataset for better clarity 
+filtered_data = sus_closed_hosp_filt
+
+#Now we print the top 10 rows of this corrected list
+filtered_data = filtered_data.sort_values(by='FAC_NAME')
+result2 = filtered_data [['FAC_NAME']].head(10)
+print(result2)
+```
 
 2. 
 3. 
