@@ -60,9 +60,9 @@ Closed if its Termination Code in the POS file lists them as an “Active Provid
 - PGM_TRMNTN_CD and the value for "Active Provider" is 00
 Zip code: ZIP_CD
 Name of provider: FAC_NAME 
-Year of termination: TRMNTN_EXPRTN_DT
+Year of suspected closure: FY_END_MO_DAY_CD 
 
-Link to 2016 filtered view: https://data.cms.gov/provider-characteristics/hospitals-and-other-facilities/provider-of-services-file-hospital-non-hospital-facilities/data/q4-2016?query=%7B%22filters%22%3A%7B%22rootConjunction%22%3A%7B%22label%22%3A%22And%22%2C%22value%22%3A%22AND%22%7D%2C%22list%22%3A%5B%5D%7D%2C%22keywords%22%3A%22%22%2C%22offset%22%3A0%2C%22limit%22%3A10%2C%22sort%22%3A%7B%22sortBy%22%3Anull%2C%22sortOrder%22%3Anull%7D%2C%22columns%22%3A%5B%22PRVDR_CTGRY_SBTYP_CD%22%2C%22PRVDR_CTGRY_CD%22%2C%22FAC_NAME%22%2C%22PRVDR_NUM%22%2C%22PGM_TRMNTN_CD%22%2C%22ZIP_CD%22%2C%22TRMNTN_EXPRTN_DT%22%5D%7D
+Link to filtered view: https://data.cms.gov/provider-characteristics/hospitals-and-other-facilities/provider-of-services-file-hospital-non-hospital-facilities/data/q4-2016?query=%7B%22filters%22%3A%7B%22rootConjunction%22%3A%7B%22label%22%3A%22And%22%2C%22value%22%3A%22AND%22%7D%2C%22list%22%3A%5B%5D%7D%2C%22keywords%22%3A%22%22%2C%22offset%22%3A0%2C%22limit%22%3A10%2C%22sort%22%3A%7B%22sortBy%22%3Anull%2C%22sortOrder%22%3Anull%7D%2C%22columns%22%3A%5B%22PRVDR_CTGRY_SBTYP_CD%22%2C%22PRVDR_CTGRY_CD%22%2C%22FAC_NAME%22%2C%22PRVDR_NUM%22%2C%22PGM_TRMNTN_CD%22%2C%22ZIP_CD%22%2C%22FY_END_MO_DAY_CD%22%5D%7D 
 
 
 1. After reviewing the entirety of the pset and the questions that are asked, I pulled the following variables: 
@@ -73,22 +73,19 @@ Link to 2016 filtered view: https://data.cms.gov/provider-characteristics/hospit
 - PGM_TRMNTN_CD: Provider termination code 
 - ZIP_CD: Zip code 
 - FAC_NAME: Provider name 
-- TRMNTN_EXPRTN_DT: Date the provider was terminated
+- FY_END_MO_DAY_CD: Year of suspected closure 
 
 2. 
 ```{python}
 # Import the file from my local drive 
 import pandas as pd 
 import os 
-base_path = r"C:\Users\12019\OneDrive - The University of Chicago\Year 2\Python II\PS4"
+base_path = r"C:\Users\12019\\Downloads\pos2016"
 path = os.path.join(base_path, "pos2016.csv")
 pos2016 = pd.read_csv(path)
 
 # Subset to PRVDR_CTGRY_CD = 01 and PRVDR_CTGRY_SBTYP_CD = 01 
 subset_16 = pos2016[(pos2016["PRVDR_CTGRY_SBTYP_CD"] == 1) & (pos2016["PRVDR_CTGRY_CD"] == 1)]
-
-#Add year 
-subset_16["data_year"] = 2016
 
 # Count the number of rows 
 total_16 = len(subset_16)
@@ -99,65 +96,120 @@ Subsetting to short-term hospitals gives a dataset with 7245 total facilities. A
     
 3.
 ```{python}
-# Load in other datasets 
-path1 = os.path.join(base_path, "pos2017.csv")
-pos2017 = pd.read_csv(path1, encoding="latin1")
+# Load in datasets 
+base_path1 = r"C:\Users\12019\\Downloads\pos2017"
+path1 = os.path.join(base_path1, "pos2017.csv")
+pos2017 = pd.read_csv(path1)
 
-path2 = os.path.join(base_path, "pos2018.csv")
-pos2018 = pd.read_csv(path2, encoding="latin1")
+base_path2 = r"C:\Users\12019\\Downloads\pos2018"
+path2 = os.path.join(base_path2, "pos2018.csv")
+pos2018 = pd.read_csv(path2, encoding='latin1')
 
 # Note: Had to do the encoding='latin1' addition to account for errors which said: 
-# UnicodeDecodeError: 'utf-8' codec can't decode byte 0x98 in position 11970: invalid start byte
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x98 in position 11970: invalid start byte
 
-path3 = os.path.join(base_path, "pos2019.csv")
-pos2019 = pd.read_csv(path3, encoding="latin1")
+base_path3 = r"C:\Users\12019\\Downloads\pos2019"
+path3 = os.path.join(base_path3, "pos2019.csv")
+pos2019 = pd.read_csv(path3, encoding='latin1')
 
-# Subset the other datasets 
-subset_17 = pos2017[(pos2017["PRVDR_CTGRY_SBTYP_CD"] == 1) & (pos2017["PRVDR_CTGRY_CD"] == 1)]
-subset_18 = pos2018[(pos2018["PRVDR_CTGRY_SBTYP_CD"] == 1) & (pos2018["PRVDR_CTGRY_CD"] == 1)]
-subset_19 = pos2019[(pos2019["PRVDR_CTGRY_SBTYP_CD"] == 1) & (pos2019["PRVDR_CTGRY_CD"] == 1)]
+# Drawn from ChatGPT. Asked "How do you append multiple data sets with the same columns?"
+combined = pd.concat([pos2016, pos2017, pos2018, pos2019], axis=0)
 
-#Add the years to each dataset before merging 
-subset_17["data_year"] = 2017
-subset_18["data_year"] = 2018
-subset_19["data_year"] = 2019
-
-# Drawn from ChatGPT. Asked "How to merge datasets that have the same columns but not in the same order?"
-combined = pd.concat([subset_16, subset_17, subset_18, subset_19], axis=0, ignore_index=True)
-
-# Plot the number of observations by year. 
+# Plot the number of observations by year  
 import altair as alt
-alt.renderers.enable("png")
-
-alt.Chart(combined).transform_aggregate(
-    count="count()", 
-    groupby=["data_year"]
-).mark_bar().encode(
-  alt.X('data_year:O'), 
-  alt.Y('count:Q')
+alt.Chart(combined).mark_bar().encode(
+  alt.X('year:Q'), 
+  y='count()'
 )
 
 ```
+
+
 
 4. 
-
-```{python}
-#Plot the number of unique hospitals by year. Used https://vega.github.io/vega-lite/docs/aggregate.html to get the transform aggregate function for count of distinct values. 
-
-alt.Chart(combined).transform_aggregate(
-    unique="distinct(PRVDR_NUM)", 
-    groupby=["data_year"]
-).mark_bar().encode(
-    alt.X("data_year:O"), 
-    alt.Y("unique:Q")
-)
-```
-
-This plot shows that every value is unique since the count of both graphs per year are the same. 
+    a.
+    b.
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
 1. 
+```{python}
+#Drawing in combined file and checking it 
+import pandas as pd
+import os 
+path = "/Users/mithilaiyer/Documents/GitHub/psetdata/combined_part1.csv"
+combined_hosp = pd.read_csv(path, low_memory=False) 
+combined_hosp.head()
+
+#Finding hospitals that are active in 2016 (where PGM_TRMNTN_CD is zero) 
+active_in_2016 = combined_hosp[(combined_hosp['data_year'] == 2016) & (combined_hosp['PGM_TRMNTN_CD'] == 0)]['PRVDR_NUM'].unique()
+
+#Finding hospitals that are closed (according to termination code)
+hosp_closed = combined_hosp[(combined_hosp['PRVDR_NUM'].isin(active_in_2016)) & (combined_hosp['data_year'].isin([2017, 2018, 2019])) & (combined_hosp['PGM_TRMNTN_CD']!=0)]
+
+#Now, we should check if there are any hospitals that may be in the data only in 2016. We can do this by subtracting the number of hospitals present after 2016 from the active hospitals in 2016
+active_after_2016 = combined_hosp[combined_hosp['data_year'].isin([2017, 2018, 2019])]['PRVDR_NUM'].unique()
+maybe_closure = [x for x in active_in_2016 if x not in active_after_2016]
+print(maybe_closure)
+#This prints an empty set, which means that there are no hospitals in the dataset operating solely in 2016
+
+#Now we need to find the suspected year of closure. 
+year_closure = hosp_closed.groupby('PRVDR_NUM')['data_year'].min().reset_index()
+year_closure.columns = ['PRVDR_NUM', 'YEAR_CLOSURE']
+sus_closed_hosp = combined_hosp[combined_hosp['PRVDR_NUM'].isin(year_closure['PRVDR_NUM'])]
+
+#Now we need to check for duplicates and do a tiny bit of cleaning (mergeing and keeping the reqd columns)
+sus_closed_hosp = sus_closed_hosp.drop_duplicates(subset=['PRVDR_NUM'])
+sus_closed_hosp = sus_closed_hosp.merge(year_closure, on="PRVDR_NUM", how="left")
+sus_closed_hosp = sus_closed_hosp[['FAC_NAME', 'ZIP_CD', 'YEAR_CLOSURE']]
+
+print(len(sus_closed_hosp))
+#We see 174 hospitals meet the criteria 
+```
+
+2. 
+```{python}
+#Sorting by hospital name and printing the first 10 rows
+sus_closed_hosp = sus_closed_hosp.sort_values(by='FAC_NAME')
+result = sus_closed_hosp[['FAC_NAME', 'YEAR_CLOSURE']].head(10)
+print(result)
+```
+
+3. 
+```{python}
+#First, we will need to consolidate the dataset to find hospitals that were active in 2016. From this, we will be able to group by zip code to find the number of hospitals in each zip code
+
+active_hosp = combined_hosp[combined_hosp ['PGM_TRMNTN_CD'] ==0]
+grouped_hosp = active_hosp.groupby(['ZIP_CD', 'data_year']).size().reset_index(name='NUM_HOSP')
+grouped_hosp['Diff_Count'] = grouped_hosp.groupby('ZIP_CD')['NUM_HOSP'].diff()
+
+#Next we can create a function that will gaugle increases and decreases
+
+def checker(row):
+    zip = row['ZIP_CD']
+    closure_year = row['YEAR_CLOSURE']
+    prev_year = grouped_hosp[(grouped_hosp['ZIP_CD']== zip) & (grouped_hosp['data_year']== closure_year)]
+    after_year = grouped_hosp[(grouped_hosp['ZIP_CD']== zip) & (grouped_hosp['data_year']== closure_year + 1)]
+
+    if not prev_year.empty and not after_year.empty:
+        return after_year['NUM_HOSP'].values[0] < prev_year['NUM_HOSP'].values[0]
+    return True
+
+#Now filter
+sus_closed_hosp_filt = sus_closed_hosp[sus_closed_hosp.apply(checker, axis=1)]
+```
+
+a. 
+```{python}
+closed_hosp_names_filt = sus_closed_hosp_filt ['FAC_NAME']
+merg_acq = sus_closed_hosp[~sus_closed_hosp['FAC_NAME'].isin(closed_hosp_names_filt)]
+print(len(merg_acq))
+#27 hospitals are suspected to be mergers and acquisitions
+```
+
+
+
+
 2. 
 3. 
     a.
