@@ -239,36 +239,43 @@ print(result2)
 #Loading in data.
 import geopandas as gpd 
 import pandas as pd
+import matplotlib.pyplot as plt
 filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
 pset4_geo = gpd.read_file(filepath)
 #Restricted to Texas zipcodes
 subset_tx = pset4_geo[pset4_geo['ZCTA5'].str[:3].between('750', '799')]
 
-#Using the cleaned file from the previous step and converting zip codes to string
-filtered_data['ZIP_CD'] = filtered_data['ZIP_CD'].astype(str).str.split('.').str[0]
-filtered_data.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+#According to the question, we should be using all hospitals in 2016 in Texas. This is how we will filter - though first we should convert the zip code var to string
 
+combined_hosp['ZIP_CD'] = combined_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
+tx_hosp = combined_hosp[
+    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799')) & 
+    (combined_hosp['data_year'] == 2016)
+]
+#Grouping by zip code 
+tx_hosp_group = tx_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
 
+#Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
+tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
+tx_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(int)
 
-#Merging
-merged_sets = subset_tx.merge(filtered_data, on='ZCTA5', how='outer')
+#Merging and fixing for zip codes without hospitals (by filling with 0)
+merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
+merged_tex['Num_Hosp'].fillna(0, inplace=True)
 
-#Plot a choropleth of the number of hospitals by zip code in Texas.
-
-data.plot(column="var") draws a choropleth map with shading corresponding to the highlighted variable
-
-#Creating chloropleth
-
-
+#Chloropleth
+merged_tex.plot(column='Num_Hosp', legend=True,
+                cmap='coolwarm',
+                legend_kwds={'label': "# Hospitals",
+                    'orientation':"horizontal"},
+                vmin=0, vmax=5)
+plt.title('Texas Hospitals per ZIP in 2016')
+plt.axis('off')
+plt.show()
 
 ```
 
-
-#Converting both to string and merging
-subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(str)
-grouped_tx_hosp.loc[:, 'ZCTA5'] = grouped_tx_hosp['ZCTA5'].astype(str)
-merged_data = subset_tx.merge(grouped_tx_hosp, on='ZCTA5', how='outer')
-```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
@@ -283,7 +290,7 @@ zips_all_centroids.set_geometry('centroid')
 dimensions = zips_all_centroids.shape
 print("Dimensions:", dimensions)
 print(zips_all_centroids.info())
-#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry columm and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
+#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry column and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
 ```
 
 2. 
@@ -308,6 +315,52 @@ zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.sort_value
 #There are 1935 unique zip codes in the Texas subset, and 4057 unique codes in the Texas and its bordering states subset. 
 #Source: ChatGPT to determine how to combine multiple subsets
 ```
+
+
+3. 
+```{python}
+#We need to create another combination dataset for zip codes in NM, OK, AR, and LA.
+border_hosp = combined_hosp[
+    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799') |
+        combined_hosp['ZIP_CD'].str[:3].between('700', '714') |
+        combined_hosp['ZIP_CD'].str[:3].between('716', '729') |
+        combined_hosp['ZIP_CD'].str[:3].between('730', '749') |
+        combined_hosp['ZIP_CD'].str[:3].between('870', '885')
+    ) & (combined_hosp['data_year'] == 2016)
+]
+#Now, we group by zip code, and clean the zip codes
+border_hosp_group = border_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
+border_hosp_group['ZIP_CD'] = border_hosp_group['ZIP_CD'].astype(int)
+border_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+zips_texas_borderstates_centroids['ZCTA5'] = zips_texas_borderstates_centroids['ZCTA5'].astype(int)
+
+#Merging and fixing for zip codes without hospitals (by filling with 0)
+zips_withhospital_centroids = pd.merge(zips_texas_borderstates_centroids, border_hosp_group, on='ZCTA5', how='left').fillna({'Num_Hosp': 0})
+#Now that we have the number of hospitals per zip code, we should check how zip codes have zero hospitals
+num_zero_hospitals = (zips_withhospital_centroids['Num_Hosp'] == 0).sum()
+print(num_zero_hospitals)
+#As the pset question says "create a subset of zips_texas_borderstates_centroids that contains only the zip codes with at least 1 hospital in 2016", we should delete the observations that have zero hospitals
+zips_withhospital_centroids = zips_withhospital_centroids[zips_withhospital_centroids['Num_Hosp'] != 0]
+
+#We decided to merge on the zip code var - "ZCTA5". We conducted a left merge on the zips_borderstates_centroid as we wanted to maintain all the rows from the GeoDataFrame before merging in the relevant ones from our hospital data.
+```
+
+
+```
+
+#Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
+tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
+tx_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(int)
+
+#Merging and fixing for zip codes without hospitals (by filling with 0)
+merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
+merged_tex['Num_Hosp'].fillna(0, inplace=True)
+
+
+```
+
+~~ 
 
 2. 
 ```{python}
