@@ -235,47 +235,6 @@ print(result2)
     b. The datasets have the following sizes: xml (16kb), dbf (6.4mb), prj (4kb), shp (837.5mb), shx (266kb)
 2. 
 
-```{python}
-#Loading in data.
-import geopandas as gpd 
-import pandas as pd
-import matplotlib.pyplot as plt
-filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
-pset4_geo = gpd.read_file(filepath)
-#Restricted to Texas zipcodes
-subset_tx = pset4_geo[pset4_geo['ZCTA5'].str[:3].between('750', '799')]
-
-#According to the question, we should be using all hospitals in 2016 in Texas. This is how we will filter - though first we should convert the zip code var to string
-
-combined_hosp['ZIP_CD'] = combined_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
-tx_hosp = combined_hosp[
-    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799')) & 
-    (combined_hosp['data_year'] == 2016)
-]
-#Grouping by zip code 
-tx_hosp_group = tx_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
-
-#Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
-tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
-tx_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
-subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(int)
-
-#Merging and fixing for zip codes without hospitals (by filling with 0)
-merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
-merged_tex['Num_Hosp'].fillna(0, inplace=True)
-
-#Chloropleth
-merged_tex.plot(column='Num_Hosp', legend=True,
-                cmap='coolwarm',
-                legend_kwds={'label': "# Hospitals",
-                    'orientation':"horizontal"},
-                vmin=0, vmax=5)
-plt.title('Texas Hospitals per ZIP in 2016')
-plt.axis('off')
-plt.show()
-
-```
-
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
@@ -345,22 +304,33 @@ zips_withhospital_centroids = zips_withhospital_centroids[zips_withhospital_cent
 #We decided to merge on the zip code var - "ZCTA5". We conducted a left merge on the zips_borderstates_centroid as we wanted to maintain all the rows from the GeoDataFrame before merging in the relevant ones from our hospital data.
 ```
 
+4. 
+a. 
+This is a computationally-intensive join. Before attempting to do the entire join,
+subset to 10 zip codes in zips_texas_centroids and try the join. How long did
+it take? Approximately how long do you estimate the entire procedure will take?
+```{python}
+#In order to do the subsetted join with 10 zip codes, lets first sort by zip code then take the top 10
+zips_texas_centroids.sort_values(by='ZCTA5', inplace=True)
+zips_top10_texas_centroids = zips_texas_centroids[:10]
+
+#Now 
+from timeit import default_timer as timer
+start = timer()
+closest_hosp = gpd.sjoin_nearest(
+    zips_top10_texas_centroids,
+    zips_withhospital_centroids,
+    how='inner', distance_col="distance"
+)
+end = timer()
+time = (end - start)
+
+print(f'Time in seconds for subsetted merge: {time:.2f}')
+mins = (time*(zips_texas_centroids.shape[0]/10))/60
+print (f'The whole procedure will take {mins:.2f} minutes')
 
 ```
 
-#Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
-tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
-tx_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
-subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(int)
-
-#Merging and fixing for zip codes without hospitals (by filling with 0)
-merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
-merged_tex['Num_Hosp'].fillna(0, inplace=True)
-
-
-```
-
-~~ 
 
 2. 
 ```{python}
@@ -386,3 +356,45 @@ merged_tex['Num_Hosp'].fillna(0, inplace=True)
 4. 
 
 ## Reflecting on the exercise (10 pts) 
+
+
+```{python}
+#Loading in data.
+import geopandas as gpd 
+import pandas as pd
+import matplotlib.pyplot as plt
+filepath = "/Users/mithilaiyer/Documents/GitHub/psetdata/shp/gz_2010_us_860_00_500k.shp" 
+pset4_geo = gpd.read_file(filepath)
+#Restricted to Texas zipcodes
+subset_tx = pset4_geo[pset4_geo['ZCTA5'].str[:3].between('750', '799')]
+
+#According to the question, we should be using all hospitals in 2016 in Texas. This is how we will filter - though first we should convert the zip code var to string
+
+combined_hosp['ZIP_CD'] = combined_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
+tx_hosp = combined_hosp[
+    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799')) & 
+    (combined_hosp['data_year'] == 2016)
+]
+#Grouping by zip code 
+tx_hosp_group = tx_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
+
+#Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
+tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
+tx_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+subset_tx['ZCTA5'] = subset_tx['ZCTA5'].astype(int)
+
+#Merging and fixing for zip codes without hospitals (by filling with 0)
+merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
+merged_tex['Num_Hosp'].fillna(0, inplace=True)
+
+#Chloropleth
+merged_tex.plot(column='Num_Hosp', legend=True,
+                cmap='coolwarm',
+                legend_kwds={'label': "# Hospitals",
+                    'orientation':"horizontal"},
+                vmin=0, vmax=5)
+plt.title('Texas Hospitals per ZIP in 2016')
+plt.axis('off')
+plt.show()
+
+```
