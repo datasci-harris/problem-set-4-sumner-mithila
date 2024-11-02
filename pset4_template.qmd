@@ -167,10 +167,15 @@ print(result)
 #First, we will need to consolidate the dataset to find hospitals that were active in 2016. From this, we will be able to group by zip code to find the number of hospitals in each zip code
 
 active_hosp = combined_hosp[combined_hosp ['PGM_TRMNTN_CD'] ==0]
+#Briefly converting zip code to string, this will help our merge in 3.2
+active_hosp.loc[:, 'ZIP_CD'] = active_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
 grouped_hosp = active_hosp.groupby(['ZIP_CD', 'data_year']).size().reset_index(name='NUM_HOSP')
 grouped_hosp['Diff_Count'] = grouped_hosp.groupby('ZIP_CD')['NUM_HOSP'].diff()
+#Converting zip code back to numeric for checking in the function
+grouped_hosp['ZIP_CD'] = grouped_hosp['ZIP_CD'].astype(int)
 
-#Next we can create a function that will gaugle increases and decreases
+
+#Next we can create a function that will gauge increases and decreases
 
 def checker(row):
     zip = row['ZIP_CD']
@@ -196,17 +201,17 @@ print(len(merg_acq))
 
 b. 
 ```{python}
-#In order to correct for mergers and acquisitions, we delete the mergers from the old dataset
+#In order to correct for mergers and acquisitions, we chose to delete the mergers from the old dataset
 merg_acq_names = merg_acq['FAC_NAME']
 sus_closed_hosp_filt = sus_closed_hosp_filt[~sus_closed_hosp_filt['FAC_NAME'].isin(merg_acq_names)]
 
 print(len(sus_closed_hosp_filt))
-#147 hospitals remain after correcting
+#147 hospitals remain after correcting for mergers
 ```
 
 c.
 ```{python}
-#Lets rename the filtered dataset for better clarity 
+#Renaming the filtered dataset for clarity 
 filtered_data = sus_closed_hosp_filt
 
 #Now we print the top 10 rows of this corrected list
@@ -248,7 +253,7 @@ zips_all_centroids.set_geometry('centroid')
 dimensions = zips_all_centroids.shape
 print("Dimensions:", dimensions)
 print(zips_all_centroids.info())
-#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry columm and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
+#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry column and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
 ```
 
 2. 
@@ -273,6 +278,63 @@ zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.sort_value
 #There are 1935 unique zip codes in the Texas subset, and 4057 unique codes in the Texas and its bordering states subset. 
 #Source: ChatGPT to determine how to combine multiple subsets
 ```
+
+
+3. 
+```{python}
+#We need to create another combination dataset for zip codes in NM, OK, AR, and LA.
+border_hosp = combined_hosp[
+    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799') |
+        combined_hosp['ZIP_CD'].str[:3].between('700', '714') |
+        combined_hosp['ZIP_CD'].str[:3].between('716', '729') |
+        combined_hosp['ZIP_CD'].str[:3].between('730', '749') |
+        combined_hosp['ZIP_CD'].str[:3].between('870', '885')
+    ) & (combined_hosp['data_year'] == 2016)
+]
+#Now, we group by zip code, and clean the zip codes
+border_hosp_group = border_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
+border_hosp_group['ZIP_CD'] = border_hosp_group['ZIP_CD'].astype(int)
+border_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
+zips_texas_borderstates_centroids['ZCTA5'] = zips_texas_borderstates_centroids['ZCTA5'].astype(int)
+
+#Merging and fixing for zip codes without hospitals (by filling with 0)
+zips_withhospital_centroids = pd.merge(zips_texas_borderstates_centroids, border_hosp_group, on='ZCTA5', how='left').fillna({'Num_Hosp': 0})
+#Now that we have the number of hospitals per zip code, we should check how zip codes have zero hospitals
+num_zero_hospitals = (zips_withhospital_centroids['Num_Hosp'] == 0).sum()
+print(num_zero_hospitals)
+#As the pset question says "create a subset of zips_texas_borderstates_centroids that contains only the zip codes with at least 1 hospital in 2016", we should delete the observations that have zero hospitals
+zips_withhospital_centroids = zips_withhospital_centroids[zips_withhospital_centroids['Num_Hosp'] != 0]
+
+#We decided to merge on the zip code var - "ZCTA5". We conducted a left merge on the zips_borderstates_centroid as we wanted to maintain all the rows from the GeoDataFrame before merging in the relevant ones from our hospital data.
+```
+
+4. 
+a. 
+This is a computationally-intensive join. Before attempting to do the entire join,
+subset to 10 zip codes in zips_texas_centroids and try the join. How long did
+it take? Approximately how long do you estimate the entire procedure will take?
+```{python}
+#In order to do the subsetted join with 10 zip codes, lets first sort by zip code then take the top 10
+zips_texas_centroids.sort_values(by='ZCTA5', inplace=True)
+zips_top10_texas_centroids = zips_texas_centroids[:10]
+
+#Now 
+from timeit import default_timer as timer
+start = timer()
+closest_hosp = gpd.sjoin_nearest(
+    zips_top10_texas_centroids,
+    zips_withhospital_centroids,
+    how='inner', distance_col="distance"
+)
+end = timer()
+time = (end - start)
+
+print(f'Time in seconds for subsetted merge: {time:.2f}')
+mins = (time*(zips_texas_centroids.shape[0]/10))/60
+print (f'The whole procedure will take {mins:.2f} minutes')
+
+```
+
 
 2. 
 ```{python}
@@ -353,5 +415,3 @@ There are 24 indirectly affected zip codes after completing the spatial join.
 ```
 
 ## Reflecting on the exercise (10 pts) 
-
-1. 
