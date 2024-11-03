@@ -382,7 +382,7 @@ print (f'The whole procedure will take {mins:.2f} minutes')
 1. 
 ```{python}
 #Using the clean data, create a subset with only TX zip codes
-zip_codes_tx = filtered_data[(filtered_data['ZIP_CD'] >= 75000) & (filtered_data['ZIP_CD'] <= 79900)]
+zip_codes_tx = filtered_data[(filtered_data['ZIP_CD'] >= 75000) & (filtered_data['ZIP_CD'] <= 79999)]
 
 #Drawn from ChatGPT. Asked "Let's say I have a data frame with a column of values. How do I create a new table that shows me in one column all the unique values in that column and how many times they appeared?" This gives a table with all Texas zip codes and the number of closures within each zip code. 
 tx_zips_closures = zip_codes_tx["ZIP_CD"].value_counts().reset_index()
