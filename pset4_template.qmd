@@ -30,9 +30,10 @@ Please refer to the minilesson on code style
     - Partner 1 (name and cnet ID): Sumner Perera (CNet ID: 12403312)
     - Partner 2 (name and cnet ID): Mithila Iyer (CNet ID: 12414493)
 3. Partner 1 will accept the `ps4` and then share the link it creates with their partner. You can only share it with one partner so you will not be able to change it after your partner has accepted. 
-4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\S\P\*\* \*\*\_\_\*\*
+4. "This submission is our work alone and complies with the 30538 integrity policy." Add your initials to indicate your agreement: \*\*\S\P\*\* \*\*\M\I\*\*
 5. "I have uploaded the names of anyone else other than my partner and I worked with on the problem set **[here](https://docs.google.com/forms/d/185usrCREQaUbvAXpWhChkjghdGgmAZXA3lPWpXLLsts/edit)**"  (1 point)
-6. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\*
+6. Late coins used this pset: \*\*\_\_\*\* Late coins left after submission: \*\*\_\_\*\* 
+    (MI): Late coins used this pset: \*\*\1\*\* Late coins left after submission: \*\*\0\*\* 
 7. Knit your `ps4.qmd` to an PDF file to make `ps4.pdf`, 
     * The PDF should not be more than 25 pages. Use `head()` and re-size figures when appropriate. 
 8. (Partner 1): push  `ps4.qmd` and `ps4.pdf` to your github repo.
@@ -123,8 +124,7 @@ alt.Chart(combined).mark_bar().encode(
 #Drawing in combined file and checking it 
 import pandas as pd
 import os 
-# path = "/Users/mithilaiyer/Documents/GitHub/psetdata/combined_part1.csv"
-path4 = os.path.join(base_path, "combined_part1.csv")
+path = "/Users/mithilaiyer/Documents/GitHub/psetdata/combined_part1.csv"
 combined_hosp = pd.read_csv(path4, low_memory=False) 
 combined_hosp.head()
 
@@ -134,25 +134,23 @@ active_in_2016 = combined_hosp[(combined_hosp['data_year'] == 2016) & (combined_
 #Finding hospitals that are closed (according to termination code)
 hosp_closed = combined_hosp[(combined_hosp['PRVDR_NUM'].isin(active_in_2016)) & (combined_hosp['data_year'].isin([2017, 2018, 2019])) & (combined_hosp['PGM_TRMNTN_CD']!=0)]
 
-#Now, we should check if there are any hospitals that may be in the data only in 2016. We can do this by subtracting the number of hospitals present after 2016 from the active hospitals in 2016
-active_after_2016 = combined_hosp[combined_hosp['data_year'].isin([2017, 2018, 2019])]['PRVDR_NUM'].unique()
-maybe_closure = [x for x in active_in_2016 if x not in active_after_2016]
-print(maybe_closure)
-#This prints an empty set, which means that there are no hospitals in the dataset operating solely in 2016
-
 #Now we need to find the suspected year of closure. 
 year_closure = hosp_closed.groupby('PRVDR_NUM')['data_year'].min().reset_index()
 year_closure.columns = ['PRVDR_NUM', 'YEAR_CLOSURE']
 sus_closed_hosp = combined_hosp[combined_hosp['PRVDR_NUM'].isin(year_closure['PRVDR_NUM'])]
 
 #Now we need to check for duplicates and do a tiny bit of cleaning (mergeing and keeping the reqd columns)
-sus_closed_hosp = sus_closed_hosp.drop_duplicates(subset=['PRVDR_NUM'])
-sus_closed_hosp = sus_closed_hosp.merge(year_closure, on="PRVDR_NUM", how="left")
-sus_closed_hosp = sus_closed_hosp[['FAC_NAME', 'ZIP_CD', 'YEAR_CLOSURE']]
+sus_closed_hosp = (
+    sus_closed_hosp
+    .drop_duplicates(subset=['PRVDR_NUM'])
+    .merge(year_closure, on="PRVDR_NUM", how="left")
+    [[ 'FAC_NAME', 'ZIP_CD', 'YEAR_CLOSURE']]
+)
 
 print(len(sus_closed_hosp))
-#We see 174 hospitals meet the criteria 
+#Source: ChatGPT used for the duplicates check and the merge
 ```
+We see 174 hospitals meet the criteria 
 
 2. 
 ```{python}
@@ -165,7 +163,6 @@ print(result)
 3. 
 ```{python}
 #First, we will need to consolidate the dataset to find hospitals that were active in 2016. From this, we will be able to group by zip code to find the number of hospitals in each zip code
-
 active_hosp = combined_hosp[combined_hosp ['PGM_TRMNTN_CD'] ==0]
 #Briefly converting zip code to string, this will help our merge in 3.2
 active_hosp.loc[:, 'ZIP_CD'] = active_hosp['ZIP_CD'].astype(str).str.split('.').str[0]
@@ -174,9 +171,7 @@ grouped_hosp['Diff_Count'] = grouped_hosp.groupby('ZIP_CD')['NUM_HOSP'].diff()
 #Converting zip code back to numeric for checking in the function
 grouped_hosp['ZIP_CD'] = grouped_hosp['ZIP_CD'].astype(int)
 
-
 #Next we can create a function that will gauge increases and decreases
-
 def checker(row):
     zip = row['ZIP_CD']
     closure_year = row['YEAR_CLOSURE']
@@ -187,33 +182,34 @@ def checker(row):
         return after_year['NUM_HOSP'].values[0] < prev_year['NUM_HOSP'].values[0]
     return True
 
-#Now filter
+#Now filtering the increases and decreases through the function
 sus_closed_hosp_filt = sus_closed_hosp[sus_closed_hosp.apply(checker, axis=1)]
+#Source: ChatGPT used for help thinking about how to gauge increases/decreases  and for applying it to each row of the suspected closed hospitals.
 ```
 
-a. 
+
+    a. 
 ```{python}
 closed_hosp_names_filt = sus_closed_hosp_filt ['FAC_NAME']
 merg_acq = sus_closed_hosp[~sus_closed_hosp['FAC_NAME'].isin(closed_hosp_names_filt)]
 print(len(merg_acq))
-#27 hospitals are suspected to be mergers and acquisitions
 ```
+27 hospitals are suspected to be mergers and acquisitions
 
-b. 
+    b. 
 ```{python}
 #In order to correct for mergers and acquisitions, we chose to delete the mergers from the old dataset
 merg_acq_names = merg_acq['FAC_NAME']
 sus_closed_hosp_filt = sus_closed_hosp_filt[~sus_closed_hosp_filt['FAC_NAME'].isin(merg_acq_names)]
 
 print(len(sus_closed_hosp_filt))
-#147 hospitals remain after correcting for mergers
 ```
+147 hospitals remain after correcting for mergers
 
-c.
+    c.
 ```{python}
 #Renaming the filtered dataset for clarity 
 filtered_data = sus_closed_hosp_filt
-
 #Now we print the top 10 rows of this corrected list
 filtered_data = filtered_data.sort_values(by='FAC_NAME')
 result2 = filtered_data [['FAC_NAME']].head(10)
@@ -229,7 +225,7 @@ print(result2)
 2. 
 
 ```{python}
-#Loading
+#Loading in the shapefile and geodata modules
 import geopandas as gpd 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -244,7 +240,7 @@ tx_hosp = combined_hosp[
     (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799')) & 
     (combined_hosp['data_year'] == 2016)
 ]
-#Grouping by zip code 
+#Grouping by zip code to get the number of hospitals
 tx_hosp_group = tx_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
 #Pre-merge cleaning. As we are merging on zip code, we will need to convert back to int and rename the hosp data zip code variable to match the spatial data
 tx_hosp_group['ZIP_CD'] = tx_hosp_group['ZIP_CD'].astype(int)
@@ -255,21 +251,19 @@ merged_tex = subset_tx.merge(tx_hosp_group, on='ZCTA5', how='left')
 merged_tex['Num_Hosp'].fillna(0, inplace=True)
 
 #Chloropleth
-merged_tex.plot(column='Num_Hosp', legend=True,
-                cmap='coolwarm',
-                legend_kwds={'label': "# Hospitals",
-                    'orientation':"horizontal"},
-                vmin=0, vmax=5)
+merged_tex.plot(column='Num_Hosp', cmap='coolwarm', 
+linewidth=0.3, edgecolor='0.8', legend=True)
 plt.title('Texas Hospitals per ZIP in 2016')
 plt.axis('off')
 plt.show()
+#Source: ChatGPT for chloropleth refinement
 ```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
 ```{python}
-#Calculate centroids
+#Calculating centroids
 zips_all_centroids = pset4_geo.copy()
 zips_all_centroids['centroid'] = zips_all_centroids.centroid
 zips_all_centroids.set_geometry('centroid')
@@ -278,8 +272,9 @@ zips_all_centroids.set_geometry('centroid')
 dimensions = zips_all_centroids.shape
 print("Dimensions:", dimensions)
 print(zips_all_centroids.info())
-#The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry column and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
+#Source: ChatGPT used for understanding how to print dimension information.
 ```
+The dataframe has 33,120 observations or unique zip codes. It has 7 columns (4 object, 1 integer, and 2 geometry). The centroid column is calculated from the geometry column and is the mean of the points in the polygon. GeoID is the unique geographical identifier, ZCTAS and NAME describe the zip code, and LSAD is the legal statistical area definition. Finally, census area is the calculated area derived from the ungeneralized area.
 
 2. 
 ```{python}
@@ -299,83 +294,105 @@ zips_texas_borderstates_centroids = zips_all_centroids[
     )
 ]
 zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.sort_values(by='ZCTA5', ascending=True)
-
-#There are 1935 unique zip codes in the Texas subset, and 4057 unique codes in the Texas and its bordering states subset. 
 #Source: ChatGPT to determine how to combine multiple subsets
 ```
+There are 1935 unique zip codes in the Texas subset, and 4057 unique codes in the Texas and its bordering states subset. 
 
 
 3. 
+
 ```{python}
-#We need to create another combination dataset for zip codes in NM, OK, AR, and LA.
-border_hosp = combined_hosp[
-    (combined_hosp['ZIP_CD'].astype(str).str[:3].between('750', '799') |
-        combined_hosp['ZIP_CD'].str[:3].between('700', '714') |
-        combined_hosp['ZIP_CD'].str[:3].between('716', '729') |
-        combined_hosp['ZIP_CD'].str[:3].between('730', '749') |
-        combined_hosp['ZIP_CD'].str[:3].between('870', '885')
-    ) & (combined_hosp['data_year'] == 2016)
-]
-#Now, we group by zip code, and clean the zip codes
-border_hosp_group = border_hosp.groupby('ZIP_CD').size().reset_index(name='Num_Hosp')
-border_hosp_group['ZIP_CD'] = border_hosp_group['ZIP_CD'].astype(int)
-border_hosp_group.rename(columns={'ZIP_CD': 'ZCTA5'}, inplace=True)
-zips_texas_borderstates_centroids['ZCTA5'] = zips_texas_borderstates_centroids['ZCTA5'].astype(int)
+#The desired subset zips_withhospitals_centroids should contain only zipcodes with at least 1 hospital in 2016, from the zip codes in the subsets with bordering states of TX. First, we isolate the hospital data for hospitals active in 2016. We've already done this in 2.1, but redefining here
+active_in_2016 = combined_hosp[(combined_hosp['data_year'] == 2016) & (combined_hosp['PGM_TRMNTN_CD'] == 0)][['data_year', 'ZIP_CD', 'PRVDR_NUM']].drop_duplicates()
+active_in_2016['ZIP_CD'] = active_in_2016['ZIP_CD'].astype(str).str.replace('.0', '')
 
-#Merging and fixing for zip codes without hospitals (by filling with 0)
-zips_withhospital_centroids = pd.merge(zips_texas_borderstates_centroids, border_hosp_group, on='ZCTA5', how='left').fillna({'Num_Hosp': 0})
-#Now that we have the number of hospitals per zip code, we should check how zip codes have zero hospitals
-num_zero_hospitals = (zips_withhospital_centroids['Num_Hosp'] == 0).sum()
-print(num_zero_hospitals)
-#As the pset question says "create a subset of zips_texas_borderstates_centroids that contains only the zip codes with at least 1 hospital in 2016", we should delete the observations that have zero hospitals
-zips_withhospital_centroids = zips_withhospital_centroids[zips_withhospital_centroids['Num_Hosp'] != 0]
-
-#We decided to merge on the zip code var - "ZCTA5". We conducted a left merge on the zips_borderstates_centroid as we wanted to maintain all the rows from the GeoDataFrame before merging in the relevant ones from our hospital data.
+#Changing zip code for border states centroid to string 
+zips_texas_borderstates_centroids['ZCTA5'] = zips_texas_borderstates_centroids['ZCTA5'].astype(str).str.replace('.0', '')
+#Merging with the border states centroid
+zips_withhospital_centroids = zips_texas_borderstates_centroids.merge(
+    active_in_2016[['ZIP_CD']],
+    left_on='ZCTA5',
+    right_on='ZIP_CD',
+    how='inner'
+)
 ```
+Ultimately we want rows with an active hospital in 2016 that has a zipcode aligning with the TX and borderstates dataset to be present in the new dataset (zips_withhospital_centroids). We achieved this through a inner merge on zipcodes.
+
 
 4. 
-a. 
-This is a computationally-intensive join. Before attempting to do the entire join,
-subset to 10 zip codes in zips_texas_centroids and try the join. How long did
-it take? Approximately how long do you estimate the entire procedure will take?
+    a. 
 ```{python}
 #In order to do the subsetted join with 10 zip codes, lets first sort by zip code then take the top 10
-zips_texas_centroids.sort_values(by='ZCTA5', inplace=True)
 zips_top10_texas_centroids = zips_texas_centroids[:10]
 
-#Now 
-from timeit import default_timer as timer
-start = timer()
+#Now we import the timer 
+import time 
+start = time.time()
 closest_hosp = gpd.sjoin_nearest(
     zips_top10_texas_centroids,
     zips_withhospital_centroids,
-    how='inner', distance_col="distance"
+    how='inner', distance_col="Dist"
 )
-end = timer()
-time = (end - start)
 
-print(f'Time in seconds for subsetted merge: {time:.2f}')
-mins = (time*(zips_texas_centroids.shape[0]/10))/60
-print (f'The whole procedure will take {mins:.2f} minutes')
+end = time.time()
+elapsed_time = (end - start)
 
+
+print(f'{elapsed_time:.3f}')
+full_merge_mins = (elapsed_time * (zips_texas_centroids.shape[0] / 10)) / 60
+print(f'{full_merge_mins:.3f}')
+
+#Source: ChatGPT for the time calculations and printing in the correct format 
 ```
+It will take 0.547 seconds to complete the subsetted merge
+It will take 1.765 minutes to complete the full merge
 
-
-2. 
+    b. 
 ```{python}
-#CRM is a way of converting something flat into spherical. Prj is projection, will tell you . it's in degres. 
+#Now, we do the full merge.
+start = time.time ()
+closest_hosp_full = gpd.sjoin_nearest(
+    zips_texas_centroids,
+    zips_withhospital_centroids,
+    how='inner', distance_col="Dist"
+)
+end = time.time()
+elapsed_time = (end - start)
+print(f'{elapsed_time/60:.3f}')
+```
+It took 1.877 mins to complete the full merge
 
+c. 
+```{python}
+#The PRJ file states that the unit is degree. The United States Geographical Survey (https://www.usgs.gov/faqs/how-much-distance-does-a-degree-minute-and-second-cover-your-maps) states that 1 degree is approximately 69 miles. The reason that the unit is degrees is because it is projection based, not geography based CRS. 
 ```
 
 
-3. 
-4. 
-    a.
-    b.
 5. 
     a.
+```{python}
+average_distance = closest_hosp_full['Dist'].mean()
+print(average_distance)
+```
+The average distance is 0.026840066531970706. This doesnt seem right, but we haven't adjusted for degrees yet.
+
     b.
+```{python}
+result = average_distance * 69
+print(result)
+```
+This seems more plausible. The average distance is 1.8519645907059787, or nearly 2 miles when we multiply by the degree factor
+
     c.
+```{python}
+#Plotting the chloropleth
+closest_hosp_full.plot(column='Dist', cmap='Blues',
+linewidth=0.3, edgecolor='0.8', legend=True)
+plt.title("Avg Dist to Hospital", fontsize=12)
+plt.axis("off")
+```
+
+
     
 ## Effects of closures on access in Texas (15 pts)
 
