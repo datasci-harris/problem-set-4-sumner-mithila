@@ -229,7 +229,7 @@ print(result2)
 2. 
 
 ```{python}
-#Loading datasets
+#Loading
 import geopandas as gpd 
 import pandas as pd
 import matplotlib.pyplot as plt
